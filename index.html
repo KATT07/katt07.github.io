@@ -5,7 +5,7 @@
     <meta content="width=device-width, initial-scale=1" name="viewport">
     <title>Welcome to Kats-Website GNU/Linux</title>
     <!-- jQuery Terminal v2.48.1: one HTML file, with vendor libraries loaded from CDN. -->
-    <link href="https://cdn.jsdelivr.net/npm/jquery.terminal@2.48.1/css/jquery.terminal.min.css" rel="stylesheet">
+    <link href="./css/jquery.terminal.min.css" rel="stylesheet">
     <style>
         html, body {
             margin: 0;
@@ -28,23 +28,60 @@
 <body>
 <div aria-label="Simulated Linux terminal" id="terminal"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jquery.terminal@2.48.1/js/jquery.terminal.min.js"></script>
+<script src="./js/jquery.min.js"></script>
+<script src="./js/jquery.terminal.min.js"></script>
+<script src="./js/es5.js"></script>
+
 <script>
     (() => {
         'use strict';
+
+        const aboutme='===========================================================================================================================\n' +
+            'HI my name is kat (real name undisclosed) and these are my hobbies related to software/coding:\n' +
+            'Homelabbing (Proxmox/Truenas/docker/selfhosting)\n' +
+            'Hardware (ESP Boards/Hardware Hacking/Hardware Repairs)\n' +
+            'Linux (Networking/Bash/Hacking/CTFs)\n\n' +
+            'I enjoy the following types of Anime and TV:\n' +
+            'Re:Zero | Stiens;Gate | Mr.Robot | The Twilight Zone | Taxi Driver\n\n' +
+            'I play a lot of games the following is my most fav and then the rest:\n' +
+            'Outerwilds!!!!!!!  one should really play this game 10/10 the reviews say the same\n' +
+            'https://store.steampowered.com/app/753640/Outer_Wilds/ \n' +
+            'Gran Turismo 5 | Bloodborne/Sekiro | Night-runners (yet to release) | Cities: Skylines | Watchdogs 1 & 2 | Metal Gear Solid\n\n' +
+            'I also really enjoy motorcycling/roadtrips and hope one day i can go on a trackday\n' +
+            'I own the following:\n' +
+            'KTM Duke390\n' +
+            'Yamaha MT15\n\n' +
+            'These are my friends check out their websites: https://404salad.github.io/webring/ \n\n'
+
+        // Detect mobile browsers using their user-agent string.
+        const parsedUA = bowser.parse(
+            navigator.userAgent,
+            navigator.userAgentData
+        );
+
+        const isMobile = ['mobile', 'tablet'].includes(
+            (parsedUA.platform.type || '').toLowerCase()
+        );
+
+        if (isMobile) {
+            // Replace the entire page body with a simple message.
+            document.body.textContent = aboutme + 'For the full version view this page on a Desktop not mobile';
+            document.title = 'Mobile-Version';
+            return;
+        }
+
         // Everything below is a simulation in this browser
-        const DEMO_USERNAME = 'guest';
-        const DEMO_PASSWORD = 'guest';
-        const ROOT_USERNAME = 'root';
-        const ROOT_PASSWORD = atob('MTIzNDU2');
+        const vari11 = atob('Z3Vlc3Q=');
+        const vari12 = atob('Z3Vlc3Q=');
+        const vari21 = atob('cm9vdA==');
+        const vari22 = atob('MTIzNDU2');
         const HOSTNAME = 'kats-website';
-        const HOME = `/home/${DEMO_USERNAME}`;
+        const HOME = `/home/${vari11}`;
         const ROOT_HOME = '/root';
         const STORE = 'kats-website-files-v1';
         const ACCOUNTS = {
-            guest: {password: DEMO_PASSWORD, uid: 1000, gid: 1000, home: HOME},
-            root: {password: ROOT_PASSWORD, uid: 0, gid: 0, home: ROOT_HOME}
+            guest: {password: vari12, uid: 1000, gid: 1000, home: HOME},
+            root: {password: vari22, uid: 0, gid: 0, home: ROOT_HOME}
         };
         const COMMANDS = [
             'help', 'pwd', 'cd', 'ls', 'cat', 'echo', 'touch', 'mkdir', 'rmdir', 'rm', 'cp', 'mv',
@@ -96,23 +133,7 @@
                 '003  su\n' +
                 '004  123456\n' +
                 '005  clear\n');
-            file(`${HOME}/Documents/aboutme.txt`,
-                    '======================================================================================================\n' +
-                    'HI my name is kat (real name undisclosed) and these are my hobbies related to software/coding:\n' +
-                    '1. Homelabbing (Proxmox/Truenas/docker/selfhosting)\n' +
-                    '2. Hardware (ESP Boards/Hardware Hacking/Hardware Repairs)\n' +
-                    '3. Linux (Networking/Bash/Hacking/CTFs)\n\n' +
-                    'I enjoy the following types of Anime and TV:\n' +
-                    'Re:Zero | Stiens;Gate | Mr.Robot | Pulp Fiction | Taxi Driver\n\n' +
-                    'I play a lot of games the following is my fav and then the top3:\n' +
-                    'Outerwilds!!!!!!!  one should really play this game 10/10 the reviews say the same\n' +
-                    'https://store.steampowered.com/app/753640/Outer_Wilds/ \n' +
-                    'Gran Turismo 5 | Bloodborne/Sekiro | Metal Gear Solid\n\n' +
-                    'I also really enjoy motorcycling/roadtrips and hope one day i can go on a trackday\n' +
-                    'I own the following:\n' +
-                    'KTM Duke390\n' +
-                    'Yamaha MT15\n\n' +
-                    'These are my friends check out their websites: https://404salad.github.io/webring/ \n\n');
+            file(`${HOME}/Documents/aboutme.txt`, aboutme);
 
             file(`${ROOT_HOME}/.bashrc`, '# Root shell configuration (simulated).\n');
             file(`${ROOT_HOME}/.profile`, '# Root login profile (simulated).\n');
@@ -160,18 +181,18 @@
         const isDir = p => node(p)?.type === 'dir';
         const getHostname = () => String(node('/etc/hostname')?.content || HOSTNAME).trim() || HOSTNAME;
         const userHome = user => ACCOUNTS[user]?.home || HOME;
-        const isRestrictedPath = p => currentUser !== ROOT_USERNAME &&
+        const isRestrictedPath = p => currentUser !== vari21 &&
             (p === ROOT_HOME || p.startsWith(ROOT_HOME + '/') || p === '/etc/shadow' || p === '/etc/sudoers');
         const canReadPath = p => !isRestrictedPath(p);
-        const isWritable = p => currentUser === ROOT_USERNAME || p.startsWith(HOME + '/') || p.startsWith('/tmp/');
-        const protectedRoot = p => p === userHome(currentUser || DEMO_USERNAME) || p === '/tmp' || p === '/';
+        const isWritable = p => currentUser === vari21 || p.startsWith(HOME + '/') || p.startsWith('/tmp/');
+        const protectedRoot = p => p === userHome(currentUser || vari11) || p === '/tmp' || p === '/';
         const children = p => Object.keys(fs).filter(k => k !== p && parent(k) === p)
             .sort((a, b) => base(a).localeCompare(base(b)));
         const nicePath = p => {
-            const home = userHome(currentUser || DEMO_USERNAME);
+            const home = userHome(currentUser || vari11);
             return p === home ? '~' : p.startsWith(home + '/') ? '~' + p.slice(home.length) : p;
         };
-        const shellPrompt = () => `${currentUser}@${getHostname()}:${nicePath(cwd)}${currentUser === ROOT_USERNAME ? '#' : '$'} `;
+        const shellPrompt = () => `${currentUser}@${getHostname()}:${nicePath(cwd)}${currentUser === vari21 ? '#' : '$'} `;
 
         function historyPath(user) {
             return `${userHome(user)}/.bash_history`;
@@ -240,7 +261,7 @@
         }
 
         function absolute(path = '.') {
-            const input = String(path).replace(/^~(?=\/|$)/, userHome(currentUser || DEMO_USERNAME));
+            const input = String(path).replace(/^~(?=\/|$)/, userHome(currentUser || vari11));
             const parts = (input.startsWith('/') ? [] : cwd.split('/').filter(Boolean));
             for (const part of input.split('/')) {
                 if (!part || part === '.') continue;
@@ -415,7 +436,7 @@
                             owner = 'guest';
                             group = 'guest';
                         } else if (actual.startsWith('/tmp/')) {
-                            owner = currentUser || DEMO_USERNAME;
+                            owner = currentUser || vari11;
                             group = owner;
                         }
                         const size = n.type === 'dir' ? 4096 : new TextEncoder().encode(n.content).length;
@@ -661,10 +682,10 @@
                 }
                 case 'su': {
                     if (args.length > 1) return error(term, 'su: usage: su [USER]');
-                    const target = args[0] || ROOT_USERNAME;
+                    const target = args[0] || vari21;
                     if (!ACCOUNTS[target]) return error(term, `su: user ${target} does not exist`);
                     if (target === currentUser) return;
-                    if (currentUser === ROOT_USERNAME) {
+                    if (currentUser === vari21) {
                         switchUser(target, term);
                         output(term, `Switched to ${target}.`);
                     } else {
@@ -684,7 +705,7 @@
                     const originalUser = currentUser;
                     const originalCwd = cwd;
                     const commandLine = line.trim().replace(/^sudo\s+/, '');
-                    currentUser = ROOT_USERNAME;
+                    currentUser = vari21;
                     run(commandLine, term, false);
                     currentUser = originalUser;
                     cwd = originalCwd;
