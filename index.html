@@ -62,10 +62,6 @@
             (parsedUA.platform.type || '').toLowerCase()
         );
 
-        console.log('User-Agent:', navigator.userAgent);
-        console.log('Platform:', parsedUA.platform);
-        console.log('isMobile:', isMobile);
-
         if (isMobile) {
             document.body.textContent = aboutme + 'For the full version view this page on a Desktop not mobile';
             document.title = 'Mobile-Version';
