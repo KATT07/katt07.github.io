@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>Welcome to Kats-Website GNU/Linux</title>
+    <!-- jQuery Terminal v2.48.1: one HTML file, with vendor libraries loaded from CDN. -->
+    <link href="https://cdn.jsdelivr.net/npm/jquery.terminal@2.48.1/css/jquery.terminal.min.css" rel="stylesheet">
+    <style>
+        html, body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            background: #090b0a;
+        }
+
+        #terminal {
+            box-sizing: border-box;
+            width: 100%;
+            height: 100dvh;
+            min-height: 300px;
+        }
+
+        @media (max-width: 600px) {
+        }
+    </style>
+</head>
+<body>
+<div aria-label="Simulated Linux terminal" id="terminal"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.terminal@2.48.1/js/jquery.terminal.min.js"></script>
+<script>
+    (() => {
+        'use strict';
+        // Everything below is a simulation in this browser
+        const DEMO_USERNAME = 'guest';
+        const DEMO_PASSWORD = 'guest';
+        const ROOT_USERNAME = 'root';
+        const ROOT_PASSWORD = atob('MTIzNDU2');
+        const HOSTNAME = 'kats-website';
+        const HOME = `/home/${DEMO_USERNAME}`;
+        const ROOT_HOME = '/root';
+        const STORE = 'kats-website-files-v1';
+        const ACCOUNTS = {
+            guest: {password: DEMO_PASSWORD, uid: 1000, gid: 1000, home: HOME},
+            root: {password: ROOT_PASSWORD, uid: 0, gid: 0, home: ROOT_HOME}
+        };
+        const COMMANDS = [
+            'help', 'pwd', 'cd', 'ls', 'cat', 'echo', 'touch', 'mkdir', 'rmdir', 'rm', 'cp', 'mv',
+            'tree', 'find', 'grep', 'wc', 'clear', 'history',
+            'whoami', 'id', 'hostname', 'uname', 'date', 'file', 'su', 'sudo', 'logout', 'exit', 'resetfs'
+        ];
+        const history = [];
+        const userStack = [];
+        let cwd = HOME;
+        let authenticated = false;
+        let loginStage = 'username';
+        let pendingUsername = '';
+        let pendingSuUser = '';
+        let currentUser = '';
+        let fs = loadFiles();
+        saveFiles();
+
+        function freshFiles() {
+            const now = Date.now();
+            const data = Object.create(null);
+            const dir = (p) => data[p] = {type: 'dir', mtime: now};
+            const file = (p, content) => data[p] = {type: 'file', content, mtime: now};
+
+            [
+                '/', '/bin', '/etc', '/home', HOME, `${HOME}/Documents`,
+                '/media', '/mnt', '/opt', ROOT_HOME, '/tmp', '/usr', '/var'
+            ].forEach(dir);
+
+            file('/etc/hostname', 'kats-website\n');
+            file('/etc/issue', 'Kats-Website GNU/Linux (browser simulation) \\n \\l\n');
+            file('/etc/issue.net', 'Kats-Website GNU/Linux (browser simulation)\n');
+            file('/etc/os-release', 'NAME="Kats-Website Linux"\nPRETTY_NAME="Kats-Website Linux (browser simulation)"\nID=kats-website\nVERSION_ID="1.0"\n');
+            file('/etc/passwd',
+                'root:x:0:0:root:/root:/bin/sh\n' +
+                'guest:x:1000:1000:Guest User:/home/guest:/bin/sh\n');
+            file('/etc/shadow',
+                'root:$6$root12345$FasF7JzwwR37/mFKNe11hy/f8850X2skaxP3jddrcwcKQIK7wk2qChzZtGe5XT.JhJ5L.qwXYYJJhyUuqqnrc.:20380:0:99999:7:::\n' +
+                'guest:$6$guest123$YBVWcZT1tPkvnu9DIO7zt8RSHnldB4g/ABWdJiWL/WzCqgmzqe0JeE1T4al7XK0vDyOcGCX2hQ8wI3tYIh9N1/:20380:0:99999:7:::\n');
+            file('/etc/sudoers', 'root ALL=(ALL:ALL) ALL\n');
+
+            for (const name of COMMANDS) {
+                file(`/bin/${name}`, 'Binary data (simulated command placeholder; not a real host binary)\n');
+            }
+
+            file(`${HOME}/hint.txt`, 'the root password seems insecure. top 10?\n');
+            file(`${HOME}/.bash_history`,
+                '001  ls -al\n' +
+                '002  clear\n' +
+                '003  su\n' +
+                '004  123456\n' +
+                '005  clear\n');
+            file(`${HOME}/Documents/aboutme.txt`,
+                    '======================================================================================================\n' +
+                    'HI my name is kat (real name undisclosed) and these are my hobbies related to software/coding:\n' +
+                    'Homelabbing (Proxmox/Truenas/docker/selfhosting)\n' +
+                    'Hardware (ESP Boards/Hardware Hacking/Hardware Repairs)\n' +
+                    'Linux (Networking/Bash/Hacking/CTFs)\n\n' +
+                    'I enjoy the following types of Anime and TV:\n' +
+                    'Re:Zero | Stiens;Gate | Mr.Robot | Pulp Fiction | Taxi Driver\n\n' +
+                    'I play a lot of games the following is my fav and then the top3:\n' +
+                    'Outerwilds!!!!!!!  one should really play this game 10/10 the reviews say the same\n' +
+                    'Gran Turismo 5 | Bloodborne/Sekiro | Metal Gear Solid\n\n' +
+                    'I also really enjoy motorcycling/roadtrips and hope one day i can go on a trackday\n' +
+                    'I own the following:\n' +
+                    'KTM Duke390\n' +
+                    'Yamaha MT15\n\n' +
+                    'These are my friends check out their websites: https://404salad.github.io/webring/ \n\n');
+
+            file(`${ROOT_HOME}/.bashrc`, '# Root shell configuration (simulated).\n');
+            file(`${ROOT_HOME}/.profile`, '# Root login profile (simulated).\n');
+            file(`${ROOT_HOME}/.bash_history`, '001  ls -la /root\n002  cat /etc/passwd\n');
+            file(`${ROOT_HOME}/root.txt`, 'ZmxhZ3tZMFVfRzBUX1RIM19GMUE2fQ==\n');
+            return data;
+        }
+
+        function loadFiles() {
+            try {
+                const stored = JSON.parse(localStorage.getItem(STORE));
+                if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+                    const data = Object.create(null);
+                    for (const [p, node] of Object.entries(stored)) {
+                        if (!p.startsWith('/') || p.includes('//') || p.includes('/../') ||
+                            p.includes('/./') ||
+                            (p.startsWith('/bin/') && (p.slice('/bin/'.length).includes('/') || !COMMANDS.includes(p.slice('/bin/'.length)))) ||
+                            typeof node !== 'object' || !node ||
+                            !['file', 'dir'].includes(node.type)) continue;
+                        data[p] = {
+                            type: node.type,
+                            mtime: Number.isFinite(node.mtime) ? node.mtime : Date.now(),
+                            ...(node.type === 'file' ? {content: String(node.content ?? '')} : {})
+                        };
+                    }
+                    if (data['/']?.type === 'dir' && data[HOME]?.type === 'dir' &&
+                        data['/tmp']?.type === 'dir') return data;
+                }
+            } catch (_) {
+            }
+            return freshFiles();
+        }
+
+        function saveFiles() {
+            try {
+                localStorage.setItem(STORE, JSON.stringify(fs));
+            } catch (_) {
+            }
+        }
+
+        const exists = p => Object.prototype.hasOwnProperty.call(fs, p);
+        const node = p => exists(p) ? fs[p] : null;
+        const parent = p => p === '/' ? '/' : (p.slice(0, p.lastIndexOf('/')) || '/');
+        const base = p => p === '/' ? '/' : p.slice(p.lastIndexOf('/') + 1);
+        const isDir = p => node(p)?.type === 'dir';
+        const getHostname = () => String(node('/etc/hostname')?.content || HOSTNAME).trim() || HOSTNAME;
+        const userHome = user => ACCOUNTS[user]?.home || HOME;
+        const isRestrictedPath = p => currentUser !== ROOT_USERNAME &&
+            (p === ROOT_HOME || p.startsWith(ROOT_HOME + '/') || p === '/etc/shadow' || p === '/etc/sudoers');
+        const canReadPath = p => !isRestrictedPath(p);
+        const isWritable = p => currentUser === ROOT_USERNAME || p.startsWith(HOME + '/') || p.startsWith('/tmp/');
+        const protectedRoot = p => p === userHome(currentUser || DEMO_USERNAME) || p === '/tmp' || p === '/';
+        const children = p => Object.keys(fs).filter(k => k !== p && parent(k) === p)
+            .sort((a, b) => base(a).localeCompare(base(b)));
+        const nicePath = p => {
+            const home = userHome(currentUser || DEMO_USERNAME);
+            return p === home ? '~' : p.startsWith(home + '/') ? '~' + p.slice(home.length) : p;
+        };
+        const shellPrompt = () => `${currentUser}@${getHostname()}:${nicePath(cwd)}${currentUser === ROOT_USERNAME ? '#' : '$'} `;
+
+        function historyPath(user) {
+            return `${userHome(user)}/.bash_history`;
+        }
+
+        function readHistoryFile(user) {
+            const path = historyPath(user);
+            const entry = node(path);
+            if (!entry || entry.type !== 'file') return [];
+            return entry.content.split(/\r?\n/)
+                .filter(line => line.trim().length > 0)
+                .map(line => line.replace(/^\s*\d+\s{2}/, ''))
+                .slice(-200);
+        }
+
+        function loadHistoryForUser(user) {
+            const entries = readHistoryFile(user);
+            history.splice(0, history.length, ...entries);
+        }
+
+        function saveHistoryForUser(user) {
+            if (!ACCOUNTS[user]) return;
+            const path = historyPath(user);
+            if (!isDir(parent(path))) return;
+            const content = history.map((command, index) =>
+                `${String(index + 1).padStart(3, '0')}  ${command}`
+            ).join('\n');
+            fs[path] = {type: 'file', content: content ? content + '\n' : '', mtime: Date.now()};
+            saveFiles();
+        }
+
+        function clearTerminalInputHistory(term) {
+            try {
+                const h = typeof term.history === 'function' ? term.history() : null;
+                if (h && typeof h.clear === 'function') h.clear();
+                else if (h && typeof h.purge === 'function') h.purge();
+            } catch (_) { /* Shell history is still cleared even if the plugin API differs. */
+            }
+            try {
+                const cmd = typeof term.cmd === 'function' ? term.cmd() : null;
+                const h = cmd && typeof cmd.history === 'function' ? cmd.history() : null;
+                if (h && typeof h.clear === 'function') h.clear();
+                else if (h && typeof h.purge === 'function') h.purge();
+            } catch (_) { /* Optional input-history cleanup. */
+            }
+        }
+
+        function switchUser(target, term, remember = true) {
+            if (remember && currentUser) userStack.push({user: currentUser, cwd});
+            currentUser = target;
+            cwd = userHome(target);
+            loadHistoryForUser(target);
+            loginStage = 'shell';
+            pendingSuUser = '';
+            term.set_mask(false);
+            term.set_prompt(shellPrompt());
+        }
+
+        function isSudoer(user) {
+            const contents = node('/etc/sudoers')?.content || '';
+            return contents.split('\n').some(line => {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#')) return false;
+                return trimmed.split(/\s+/)[0] === user && /\bALL\s*=/.test(trimmed);
+            });
+        }
+
+        function absolute(path = '.') {
+            const input = String(path).replace(/^~(?=\/|$)/, userHome(currentUser || DEMO_USERNAME));
+            const parts = (input.startsWith('/') ? [] : cwd.split('/').filter(Boolean));
+            for (const part of input.split('/')) {
+                if (!part || part === '.') continue;
+                if (part === '..') parts.pop();
+                else parts.push(part);
+            }
+            return '/' + parts.join('/');
+        }
+
+        function error(t, msg) {
+            t.error(msg);
+        }
+
+        function output(t, value = '') {
+            t.echo(String(value), {formatters: false, exec: false});
+        }
+
+        function mustExist(t, cmd, p) {
+            if (isRestrictedPath(p)) {
+                error(t, `${cmd}: ${p}: Permission denied`);
+                return false;
+            }
+            if (exists(p)) return true;
+            error(t, `${cmd}: cannot access '${p}': No such file or directory`);
+            return false;
+        }
+
+        function requireWrite(t, cmd, p) {
+            if (isWritable(p)) return true;
+            error(t, `${cmd}: ${p}: Permission denied (simulated)`);
+            return false;
+        }
+
+        function canCreate(t, cmd, p) {
+            if (!requireWrite(t, cmd, p)) return false;
+            if (!isDir(parent(p))) {
+                error(t, `${cmd}: ${p}: Parent directory does not exist`);
+                return false;
+            }
+            return true;
+        }
+
+        function touchNode(p, type = 'file', content = '') {
+            fs[p] = type === 'dir' ? {type: 'dir', mtime: Date.now()}
+                : {type: 'file', content, mtime: Date.now()};
+        }
+
+        const isBinaryFile = n => n?.type === 'file' && /^Binary data/i.test(n.content || '');
+        const isExecutableFile = (p, n = node(p)) => isBinaryFile(n) &&
+            (/^\/(bin|sbin|usr\/(bin|sbin)|usr\/local\/(bin|sbin))\//.test(p));
+
+        function tokenize(input) {
+            let words = [], buf = '', quote = null, active = false;
+            for (let i = 0; i < input.length; i++) {
+                const c = input[i];
+                if (c === '\\' && quote !== "'") {
+                    if (i + 1 < input.length) {
+                        buf += input[++i];
+                        active = true;
+                    } else {
+                        buf += '\\';
+                        active = true;
+                    }
+                    continue;
+                }
+                if (quote) {
+                    if (c === quote) quote = null;
+                    else buf += c;
+                    continue;
+                }
+                if (c === '"' || c === "'") {
+                    quote = c;
+                    active = true;
+                    continue;
+                }
+                if (/\s/.test(c)) {
+                    if (active) {
+                        words.push(buf);
+                        buf = '';
+                        active = false;
+                    }
+                    continue;
+                }
+                if (c === '>') {
+                    if (active) {
+                        words.push(buf);
+                        buf = '';
+                        active = false;
+                    }
+                    if (input[i + 1] === '>') {
+                        words.push('>>');
+                        i++;
+                    } else words.push('>');
+                    continue;
+                }
+                buf += c;
+                active = true;
+            }
+            if (quote) throw Error('unexpected EOF while looking for matching quote');
+            if (active) words.push(buf);
+            return words;
+        }
+
+        function redirect(t, command, text) {
+            const op = command.lastIndexOf('>>') >= 0 ? '>>' : '>';
+            const pos = command.indexOf(op);
+            if (pos === -1) {
+                output(t, text.replace(/\n$/, ''));
+                return;
+            }
+            if (pos !== command.length - 2 || !command[pos + 1]) {
+                error(t, 'sh: expected a single file after redirection');
+                return;
+            }
+            const path = absolute(command[pos + 1]);
+            if (!exists(path) && !canCreate(t, 'sh', path)) return;
+            if (isDir(path)) {
+                error(t, `sh: ${path}: Is a directory`);
+                return;
+            }
+            if (!requireWrite(t, 'sh', path)) return;
+            const previous = op === '>>' && exists(path) ? node(path).content : '';
+            touchNode(path, 'file', previous + text);
+            saveFiles();
+        }
+
+        function ls(t, args) {
+            let detailed = false, hidden = false, paths = [];
+            for (const a of args) {
+                if (a.startsWith('-') && a.length > 1) {
+                    for (const flag of a.slice(1)) {
+                        if (flag === 'l') detailed = true;
+                        else if (flag === 'a') hidden = true;
+                        else return error(t, `ls: invalid option -- '${flag}'`);
+                    }
+                } else paths.push(a);
+            }
+            paths = paths.length ? paths : ['.'];
+            for (let i = 0; i < paths.length; i++) {
+                const p = absolute(paths[i]);
+                if (!mustExist(t, 'ls', p)) continue;
+                if (paths.length > 1) output(t, `${i ? '\n' : ''}${paths[i]}:`);
+                let list = isDir(p) ? children(p) : [p];
+                if (isDir(p)) {
+                    if (hidden) {
+                        list = [p + '/.', p + '/..', ...list];
+                    } else {
+                        list = list.filter(entry => !base(entry).startsWith('.'));
+                    }
+                }
+                if (!detailed) {
+                    const names = list.map(x => x.endsWith('/.') ? '.' : x.endsWith('/..') ? '..' : base(x));
+                    if (names.length) output(t, names.join('  '));
+                } else {
+                    for (const entry of list) {
+                        const actual = entry.endsWith('/..') ? parent(p) : entry.endsWith('/.') ? p : entry;
+                        const n = node(actual);
+                        if (!n) continue;
+                        let perm = n.type === 'dir' ? 'drwxr-xr-x' : (isExecutableFile(actual, n) ? '-rwxr-xr-x' : '-rw-r--r--');
+                        let owner = 'root', group = 'root';
+                        if (actual === ROOT_HOME || actual.startsWith(ROOT_HOME + '/')) {
+                            perm = n.type === 'dir' ? 'drwx------' : '-rw-------';
+                        } else if (actual === '/etc/shadow') {
+                            perm = '-rw-r-----';
+                        } else if (actual === '/etc/sudoers') {
+                            perm = '-r--r-----';
+                        } else if (actual === `${HOME}/.bash_history`) {
+                            perm = '-rw-------';
+                            owner = 'guest';
+                            group = 'guest';
+                        } else if (actual === HOME || actual.startsWith(HOME + '/')) {
+                            owner = 'guest';
+                            group = 'guest';
+                        } else if (actual.startsWith('/tmp/')) {
+                            owner = currentUser || DEMO_USERNAME;
+                            group = owner;
+                        }
+                        const size = n.type === 'dir' ? 4096 : new TextEncoder().encode(n.content).length;
+                        const time = new Date(n.mtime).toLocaleString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        });
+                        const name = entry.endsWith('/.') ? '.' : entry.endsWith('/..') ? '..' : base(entry);
+                        output(t, `${perm} 1 ${owner} ${group} ${String(size).padStart(6)} ${time} ${name}`);
+                    }
+                }
+            }
+        }
+
+        function mkdir(t, args) {
+            let recursive = false;
+            const paths = args.filter(a => {
+                if (a === '-p') {
+                    recursive = true;
+                    return false;
+                }
+                return true;
+            });
+            if (!paths.length) return error(t, 'mkdir: missing operand');
+            for (const arg of paths) {
+                const p = absolute(arg);
+                if (exists(p)) {
+                    if (!recursive) error(t, `mkdir: cannot create directory '${arg}': File exists`);
+                    continue;
+                }
+                if (!recursive) {
+                    if (canCreate(t, 'mkdir', p)) {
+                        touchNode(p, 'dir');
+                        saveFiles();
+                    }
+                } else {
+                    const parts = p.split('/').filter(Boolean);
+                    let current = '';
+                    for (const part of parts) {
+                        current += '/' + part;
+                        if (exists(current)) {
+                            if (!isDir(current)) {
+                                error(t, `mkdir: ${current}: Not a directory`);
+                                break;
+                            }
+                        } else if (canCreate(t, 'mkdir', current)) {
+                            touchNode(current, 'dir');
+                            saveFiles();
+                        } else break;
+                    }
+                }
+            }
+        }
+
+        function removePath(t, p, recursive, force, cmd) {
+            if (!exists(p)) {
+                if (!force) error(t, `${cmd}: cannot remove '${p}': No such file or directory`);
+                return;
+            }
+            if (protectedRoot(p) || !requireWrite(t, cmd, p)) return;
+            if (isDir(p) && !recursive) {
+                error(t, `${cmd}: cannot remove '${p}': Is a directory`);
+                return;
+            }
+            const all = [p, ...Object.keys(fs).filter(k => k.startsWith(p + '/'))];
+            for (const q of all) delete fs[q];
+            saveFiles();
+        }
+
+        function copyMove(t, srcRaw, destRaw, moving, recursive) {
+            const cmd = moving ? 'mv' : 'cp';
+            if (!srcRaw || !destRaw) return error(t, `${cmd}: missing file operand`);
+            const src = absolute(srcRaw), rawDest = absolute(destRaw);
+            if (!mustExist(t, cmd, src)) return;
+            if (protectedRoot(src)) return error(t, `${cmd}: refusing to modify ${src}`);
+            if (moving && !requireWrite(t, cmd, src)) return;
+            if (isDir(src) && !recursive && !moving) return error(t, `cp: omitting directory '${srcRaw}' (use -r)`);
+            const dest = isDir(rawDest) ? absolute(rawDest + '/' + base(src)) : rawDest;
+            if (dest === src) return moving ? undefined : error(t, `cp: '${srcRaw}' and '${destRaw}' are the same file`);
+            if (dest.startsWith(src + '/')) return error(t, `${cmd}: cannot copy/move directory into itself`);
+            if (exists(dest) && (isDir(src) || isDir(dest))) return error(t, `${cmd}: cannot overwrite directory '${destRaw}'`);
+            if (!exists(dest) && !canCreate(t, cmd, dest)) return;
+            if (!requireWrite(t, cmd, dest)) return;
+            const entries = [src, ...Object.keys(fs).filter(k => k.startsWith(src + '/'))];
+            const replacements = entries.map(k => [dest + k.slice(src.length), {...fs[k], mtime: Date.now()}]);
+            if (moving) entries.forEach(k => delete fs[k]);
+            replacements.forEach(([p, n]) => {
+                fs[p] = n;
+            });
+            saveFiles();
+        }
+
+        function tree(t, arg) {
+            const p = absolute(arg || '.');
+            if (!mustExist(t, 'tree', p)) return;
+            output(t, nicePath(p));
+            let dirs = 0, files = 0, lines = 0;
+
+            function visit(dir, indent, depth) {
+                if (depth > 15 || lines > 500) return;
+                const list = children(dir).filter(k => !base(k).startsWith('.') && canReadPath(k));
+                list.forEach((item, i) => {
+                    output(t, indent + (i === list.length - 1 ? '└── ' : '├── ') + base(item));
+                    lines++;
+                    if (isDir(item)) {
+                        dirs++;
+                        visit(item, indent + (i === list.length - 1 ? '    ' : '│   '), depth + 1);
+                    } else files++;
+                });
+            }
+
+            if (isDir(p)) visit(p, '', 0); else files = 1;
+            output(t, `\n${dirs} directories, ${files} files`);
+        }
+
+        function help(t) {
+            output(t, [
+                'Kats-Website shell commands:',
+                '  pwd                 print current directory',
+                '  ls [-la] [path]     list files (long/hidden options)',
+                '  cd [path]           change directory (supports ~ and ..)',
+                '  cat FILE...         display file contents',
+                '  echo TEXT           print text; > FILE / >> FILE to write',
+                '  touch FILE...       create empty files',
+                '  mkdir [-p] DIR...   create directories',
+                '  rmdir DIR...        remove empty directories',
+                '  rm [-rf] PATH...    remove files/directories',
+                '  cp [-r] SRC DEST    copy files/directories',
+                '  mv SRC DEST         move or rename files/directories',
+                '  tree [path]         display a directory tree',
+                '  find [path]         list paths recursively',
+                '  grep TEXT FILE      find matching lines',
+                '  wc FILE             count lines, words, bytes',
+                '  file PATH           identify file type',
+                '  whoami              prints current user',
+                '  id                  prints the id and group of current user',
+                '  uname               prints details about current os',
+                '  hostname            prints the hostname',
+                '  date                prints the current date',
+                '  history [-c]        shows the shell history of a user',
+                '  su [USER]           switch user (defaults to root)',
+                '  sudo COMMAND        run a command if listed in /etc/sudoers',
+                '  clear               clears the terminal window',
+                '  logout              logs out as the current user',
+                '  exit                exit/logout as current user',
+                '  resetfs             resets the file system back to default',
+                '',
+                'Examples:',
+                '  echo "Hello world" > hello.txt',
+                '  cat hello.txt',
+                '  echo "next line" >> hello.txt',
+                '  mkdir -p projects/demo',
+                '  cp hello.txt projects/demo/copy.txt',
+                '',
+                'Files are simulated and saved in this browser.',
+                'To completely clear files/site-data clear data in browser settings',
+                '',
+                'For Interviewers/HR Department use : cat ~/Documents/aboutme.txt'
+            ].join('\n'));
+        }
+
+        function run(line, term, recordHistory = true) {
+            if (!line.trim()) return;
+            if (recordHistory) {
+                history.push(line);
+                if (history.length > 200) history.shift();
+                saveHistoryForUser(currentUser);
+            }
+            let parts;
+            try {
+                parts = tokenize(line);
+            } catch (e) {
+                return error(term, `sh: ${e.message}`);
+            }
+            const cmd = parts.shift();
+            if (!cmd) return;
+            const args = parts;
+            switch (cmd) {
+                case 'help':
+                    help(term);
+                    break;
+                case 'pwd':
+                    output(term, cwd);
+                    break;
+                case 'whoami':
+                    output(term, currentUser);
+                    break;
+                case 'id': {
+                    const account = ACCOUNTS[currentUser] || ACCOUNTS.guest;
+                    output(term, `uid=${account.uid}(${currentUser}) gid=${account.gid}(${currentUser}) groups=${account.gid}(${currentUser})`);
+                    break;
+                }
+                case 'hostname':
+                    output(term, getHostname());
+                    break;
+                case 'uname':
+                    output(term, args.includes('-a') ? `Linux ${getHostname()} 6.1.0-sim #1 SMP x86_64 GNU/Linux (simulated)` : 'Linux');
+                    break;
+                case 'date':
+                    output(term, new Date().toString());
+                    break;
+                case 'clear':
+                    term.clear();
+                    break;
+                case 'history': {
+                    if (args.length === 1 && args[0] === '-c') {
+                        history.length = 0;
+                        saveHistoryForUser(currentUser);
+                        clearTerminalInputHistory(term);
+                        break;
+                    }
+                    if (args.length) return error(term, 'history: unsupported option (use history -c to clear)');
+                    history.forEach((s, i) => output(term, `${String(i + 1).padStart(4)}  ${s}`));
+                    break;
+                }
+                case 'logout':
+                case 'exit': {
+                    if (userStack.length) {
+                        const previous = userStack.pop();
+                        currentUser = previous.user;
+                        cwd = previous.cwd;
+                        loadHistoryForUser(currentUser);
+                        loginStage = 'shell';
+                        term.set_mask(false);
+                        term.set_prompt(shellPrompt());
+                        output(term, `Returned to ${currentUser}.`);
+                        break;
+                    }
+                    authenticated = false;
+                    loginStage = 'username';
+                    pendingUsername = '';
+                    pendingSuUser = '';
+                    currentUser = '';
+                    cwd = HOME;
+                    userStack.length = 0;
+                    term.set_mask(false);
+                    term.set_prompt('user: ');
+                    output(term, 'Session ended. Please log in again.');
+                    break;
+                }
+                case 'su': {
+                    if (args.length > 1) return error(term, 'su: usage: su [USER]');
+                    const target = args[0] || ROOT_USERNAME;
+                    if (!ACCOUNTS[target]) return error(term, `su: user ${target} does not exist`);
+                    if (target === currentUser) return;
+                    if (currentUser === ROOT_USERNAME) {
+                        switchUser(target, term);
+                        output(term, `Switched to ${target}.`);
+                    } else {
+                        pendingSuUser = target;
+                        loginStage = 'su-password';
+                        term.set_mask(true);
+                        term.set_prompt('Password: ');
+                    }
+                    break;
+                }
+                case 'sudo': {
+                    if (!isSudoer(currentUser)) {
+                        error(term, `${currentUser} is not in the sudoers file. This incident will be reported.`);
+                        break;
+                    }
+                    if (!args.length) return error(term, 'sudo: usage: sudo COMMAND');
+                    const originalUser = currentUser;
+                    const originalCwd = cwd;
+                    const commandLine = line.trim().replace(/^sudo\s+/, '');
+                    currentUser = ROOT_USERNAME;
+                    run(commandLine, term, false);
+                    currentUser = originalUser;
+                    cwd = originalCwd;
+                    term.set_prompt(shellPrompt());
+                    break;
+                }
+                case 'cd': {
+                    if (args.length > 1) return error(term, 'cd: too many arguments');
+                    const dest = absolute(args[0] || '~');
+                    if (!mustExist(term, 'cd', dest)) return;
+                    if (!isDir(dest)) return error(term, `cd: ${args[0]}: Not a directory`);
+                    cwd = dest;
+                    term.set_prompt(shellPrompt());
+                    break;
+                }
+                case 'ls':
+                    ls(term, args);
+                    break;
+                case 'cat': {
+                    if (!args.length) return error(term, 'cat: missing file operand');
+                    if (args.includes('>') || args.includes('>>')) return error(term, 'cat: output redirection not implemented; use echo');
+                    for (const arg of args) {
+                        const p = absolute(arg);
+                        if (!mustExist(term, 'cat', p)) continue;
+                        if (isDir(p)) {
+                            error(term, `cat: ${arg}: Is a directory`);
+                            continue;
+                        }
+                        const content = node(p).content.replace(/\n$/, '');
+                        if (p === `${ROOT_HOME}/root.txt`) {
+                            try {
+                                output(term, atob(content.trim()));
+                            } catch (_) {
+                                output(term, content);
+                            }
+                        } else {
+                            output(term, content);
+                        }
+                    }
+                    break;
+                }
+                case 'echo': {
+                    const pos = args.findIndex(x => x === '>' || x === '>>');
+                    if (pos !== -1) {
+                        const text = args.slice(0, pos).join(' ') + '\n';
+                        redirect(term, args, text);
+                    } else output(term, args.join(' '));
+                    break;
+                }
+                case 'touch': {
+                    if (!args.length) return error(term, 'touch: missing file operand');
+                    for (const arg of args) {
+                        const p = absolute(arg);
+                        if (exists(p)) {
+                            if (!requireWrite(term, 'touch', p)) continue;
+                            fs[p].mtime = Date.now();
+                            saveFiles();
+                        } else if (canCreate(term, 'touch', p)) {
+                            touchNode(p);
+                            saveFiles();
+                        }
+                    }
+                    break;
+                }
+                case 'mkdir':
+                    mkdir(term, args);
+                    break;
+                case 'rmdir': {
+                    if (!args.length) return error(term, 'rmdir: missing operand');
+                    for (const arg of args) {
+                        const p = absolute(arg);
+                        if (!mustExist(term, 'rmdir', p)) continue;
+                        if (!isDir(p)) {
+                            error(term, `rmdir: ${arg}: Not a directory`);
+                            continue;
+                        }
+                        if (children(p).length) {
+                            error(term, `rmdir: ${arg}: Directory not empty`);
+                            continue;
+                        }
+                        if (protectedRoot(p) || !requireWrite(term, 'rmdir', p)) continue;
+                        delete fs[p];
+                        saveFiles();
+                    }
+                    break;
+                }
+                case 'rm': {
+                    let recursive = false, force = false, paths = [];
+                    for (const a of args) {
+                        if (/^-[rf]+$/.test(a)) {
+                            recursive ||= a.includes('r');
+                            force ||= a.includes('f');
+                        } else paths.push(a);
+                    }
+                    if (!paths.length) return error(term, 'rm: missing operand');
+                    for (const a of paths) removePath(term, absolute(a), recursive, force, 'rm');
+                    break;
+                }
+                case 'cp': {
+                    let recursive = false, paths = [];
+                    for (const a of args) {
+                        if (a === '-r' || a === '-R') recursive = true; else paths.push(a);
+                    }
+                    if (paths.length !== 2) return error(term, 'cp: expected SOURCE and DESTINATION');
+                    copyMove(term, paths[0], paths[1], false, recursive);
+                    break;
+                }
+                case 'mv': {
+                    if (args.length !== 2) return error(term, 'mv: expected SOURCE and DESTINATION');
+                    copyMove(term, args[0], args[1], true, true);
+                    break;
+                }
+                case 'tree':
+                    tree(term, args[0]);
+                    break;
+                case 'find': {
+                    const p = absolute(args[0] || '.');
+                    if (!mustExist(term, 'find', p)) return;
+                    output(term, nicePath(p));
+                    const list = Object.keys(fs).filter(k => k.startsWith(p === '/' ? '/' : p + '/') && k !== p && canReadPath(k)).sort();
+                    list.slice(0, 500).forEach(k => output(term, nicePath(k)));
+                    if (list.length > 500) output(term, '[truncated]');
+                    break;
+                }
+                case 'grep': {
+                    if (args.length < 2) return error(term, 'grep: usage: grep TEXT FILE');
+                    const p = absolute(args[1]);
+                    if (!mustExist(term, 'grep', p)) return;
+                    if (isDir(p)) return error(term, `grep: ${args[1]}: Is a directory`);
+                    const hits = node(p).content.split('\n').filter(l => l.includes(args[0]));
+                    if (hits.length) output(term, hits.join('\n'));
+                    break;
+                }
+                case 'wc': {
+                    if (!args.length) return error(term, 'wc: missing file operand');
+                    const p = absolute(args[0]);
+                    if (!mustExist(term, 'wc', p)) return;
+                    if (isDir(p)) return error(term, `wc: ${args[0]}: Is a directory`);
+                    const content = node(p).content;
+                    const lines = (content.match(/\n/g) || []).length;
+                    const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+                    output(term, `${lines} ${words} ${new TextEncoder().encode(content).length} ${args[0]}`);
+                    break;
+                }
+                case 'file': {
+                    if (!args.length) return error(term, 'file: missing operand');
+                    for (const a of args) {
+                        const p = absolute(a);
+                        if (!mustExist(term, 'file', p)) continue;
+                        const n = node(p);
+                        let kind = isDir(p) ? 'directory' : n.content.length === 0 ? 'empty' : 'UTF-8 text';
+                        if (isBinaryFile(n)) {
+                            kind = isExecutableFile(p, n)
+                                ? 'ELF 64-bit LSB executable, x86-64, simulated binary data'
+                                : /\.so(?:\.|$)/.test(p) || p.includes('/lib64/')
+                                    ? 'ELF 64-bit LSB shared object, x86-64, simulated binary data'
+                                    : 'binary data (simulated)';
+                        }
+                        output(term, `${a}: ${kind}`);
+                    }
+                    break;
+                }
+                case 'resetfs': {
+                    fs = freshFiles();
+                    cwd = userHome(currentUser);
+                    loadHistoryForUser(currentUser);
+                    clearTerminalInputHistory(term);
+                    saveFiles();
+                    term.set_prompt(shellPrompt());
+                    output(term, 'Pseudo-filesystem and shell history restored to defaults.');
+                    break;
+                }
+                default:
+                    error(term, `${cmd}: command not found (type help)`);
+            }
+        }
+        if (typeof window.jQuery !== 'function') {
+            document.getElementById('terminal').textContent =
+                'Could not load jQuery from CDN. Connect to the internet and reload.';
+            return;
+        }
+        window.jQuery(function ($) {
+            if (!$.fn.terminal) {
+                document.getElementById('terminal').textContent =
+                    'Unable to load jQuery Terminal. Connect to the internet and reload.';
+                return;
+            }
+            $('#terminal').terminal(function (line) {
+                if (!authenticated) {
+                    if (loginStage === 'username') {
+                        pendingUsername = String(line).trim();
+                        if (!pendingUsername) {
+                            this.set_prompt('user: ');
+                            return;
+                        }
+                        loginStage = 'password';
+                        this.set_mask(true);
+                        this.set_prompt('password: ');
+                        return;
+                    }
+                    const password = String(line);
+                    this.set_mask(false);
+                    if (ACCOUNTS[pendingUsername] && password === ACCOUNTS[pendingUsername].password) {
+                        currentUser = pendingUsername;
+                        authenticated = true;
+                        loginStage = 'shell';
+                        pendingUsername = '';
+                        pendingSuUser = '';
+                        userStack.length = 0;
+                        cwd = userHome(currentUser);
+                        loadHistoryForUser(currentUser);
+                        this.set_prompt(shellPrompt());
+                        output(this, `Welcome ${currentUser}.\nType help for commands.`);
+                    } else {
+                        this.error('Login incorrect');
+                        pendingUsername = '';
+                        loginStage = 'username';
+                        this.set_prompt('user: ');
+                    }
+                    return;
+                }
+
+                if (loginStage === 'su-password') {
+                    const target = pendingSuUser;
+                    this.set_mask(false);
+                    if (ACCOUNTS[target] && String(line) === ACCOUNTS[target].password) {
+                        switchUser(target, this);
+                        output(this, `Switched to ${target}.`);
+                    } else {
+                        this.error('su: Authentication failure');
+                        pendingSuUser = '';
+                        loginStage = 'shell';
+                        this.set_prompt(shellPrompt());
+                    }
+                    return;
+                }
+
+                run(line, this);
+            }, {
+                name: 'kats-website',
+                memory: true,
+                prompt: 'user: ',
+                historyFilter: function (command) {
+                    return authenticated && loginStage === 'shell' && !/^\s*history\s+-c\s*$/.test(command);
+                },
+                greetings: 'Welcome to Kats-Website GNU/Linux\n\n' +
+                    'This is a simulated Linux terminal running entirely in your browser. ( Login: guest  // Password: guest )\n\n' +
+                    'Also Please Scale the website according to ur display resolution using ctrl + mouse_wheel(up/down)\n',
+                onInit: function () {
+                    cwd = HOME;
+                    authenticated = false;
+                    loginStage = 'username';
+                    pendingUsername = '';
+                    pendingSuUser = '';
+                    currentUser = '';
+                    userStack.length = 0;
+                    this.set_mask(false);
+                    this.set_prompt('user: ');
+                },
+                completion: function (line, callback) {
+                    if (!authenticated || loginStage !== 'shell') return callback([]);
+                    const input = String(line || '');
+                    const trailingSpace = /\s$/.test(input);
+                    const match = input.match(/(?:^|\s)([^\s]*)$/);
+                    const word = trailingSpace ? '' : (match ? match[1] : '');
+                    if (word === '~') {
+                        callback(['~/']);
+                        return;
+                    }
+                    const expanded = word.startsWith('~')
+                        ? word.replace(/^~/, userHome(currentUser))
+                        : word;
+                    const cut = expanded.lastIndexOf('/');
+                    const dir = cut >= 0 ? absolute(expanded.slice(0, cut) || '/') : cwd;
+                    const prefix = cut >= 0 ? expanded.slice(cut + 1) : expanded;
+                    const typedPath = cut >= 0 ? word.slice(0, word.lastIndexOf('/') + 1) : '';
+                    if (!isDir(dir) || isRestrictedPath(dir)) return callback([]);
+                    const candidates = children(dir).filter(path => {
+                        const name = base(path);
+                        if (name.startsWith('.') && !prefix.startsWith('.')) return false;
+                        if (!name.startsWith(prefix)) return false;
+                        if (isRestrictedPath(path) && path !== ROOT_HOME) return false;
+                        return true;
+                    }).map(path => typedPath + base(path) + (isDir(path) ? '/' : ''));
+                    callback(candidates);
+                }
+            }).focus();
+        });
+    })();
+</script>
+</body>
+</html>
