@@ -53,7 +53,6 @@
             'Yamaha MT15\n\n' +
             'These are my friends check out their websites: https://404salad.github.io/webring/ \n\n'
 
-        // Detect mobile browsers using their user-agent string.
         const parsedUA = bowser.parse(
             navigator.userAgent,
             navigator.userAgentData
@@ -63,14 +62,16 @@
             (parsedUA.platform.type || '').toLowerCase()
         );
 
+        console.log('User-Agent:', navigator.userAgent);
+        console.log('Platform:', parsedUA.platform);
+        console.log('isMobile:', isMobile);
+
         if (isMobile) {
-            // Replace the entire page body with a simple message.
             document.body.textContent = aboutme + 'For the full version view this page on a Desktop not mobile';
             document.title = 'Mobile-Version';
             return;
         }
 
-        // Everything below is a simulation in this browser
         const vari11 = atob('Z3Vlc3Q=');
         const vari12 = atob('Z3Vlc3Q=');
         const vari21 = atob('cm9vdA==');
@@ -229,14 +230,14 @@
                 const h = typeof term.history === 'function' ? term.history() : null;
                 if (h && typeof h.clear === 'function') h.clear();
                 else if (h && typeof h.purge === 'function') h.purge();
-            } catch (_) { /* Shell history is still cleared even if the plugin API differs. */
+            } catch (_) {
             }
             try {
                 const cmd = typeof term.cmd === 'function' ? term.cmd() : null;
                 const h = cmd && typeof cmd.history === 'function' ? cmd.history() : null;
                 if (h && typeof h.clear === 'function') h.clear();
                 else if (h && typeof h.purge === 'function') h.purge();
-            } catch (_) { /* Optional input-history cleanup. */
+            } catch (_) {
             }
         }
 
